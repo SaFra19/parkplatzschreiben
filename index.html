@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Parkplatz-Quest: Lernspiel zum Parkplatz-Schreiben für die Grundschule (Klasse 3/4).">
 <title>Parkplatz-Quest</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@600;800;900&family=Andika:wght@400;700&display=swap">
 <style>
 /* Layout: one-screen arcade cabinet — HUD bar on top, stage in the middle, controls below. Single dark "night parking lot" look by choice. */
 [hidden] { display: none !important; }
@@ -21,9 +19,9 @@ img { max-width: 100%; }
   --crown: #ffc233;      /* crowns, stars */
   --good: #4fe39a;
   --bad: #ff5d73;
-  --f-display: "Luckiest Guy", "Arial Black", Impact, sans-serif;
-  --f-body: "Nunito", "Trebuchet MS", system-ui, sans-serif;
-  --f-word: "Andika", "Comic Sans MS", "Segoe UI", sans-serif;
+  --f-display: "Arial Rounded MT Bold", "Arial Black", "Segoe UI Black", system-ui, sans-serif;
+  --f-body: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --f-word: "Comic Sans MS", "Chalkboard SE", "Segoe UI", system-ui, sans-serif;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -90,6 +88,11 @@ h1, h2, h3 { font-family: var(--f-display); font-weight: 400; letter-spacing: .0
 .lvl:disabled { opacity: .45; cursor: not-allowed; }
 .lvl .lock { position: absolute; top: 14px; right: 14px; font-size: 20px; }
 .lvl.boss { background: linear-gradient(135deg, #3a1f55, #5a2533); }
+.detect { display: flex; flex-direction: column; gap: 10px; }
+.detect b { font-size: 19px; color: var(--crown); }
+.nums { display: flex; gap: 8px; flex-wrap: wrap; }
+.nums .key { min-width: 56px; font-family: var(--f-body); font-weight: 900; }
+.nums .key:disabled { opacity: .3; }
 .teacher { align-self: flex-start; background: none; color: var(--mute); font-weight: 800; font-size: 14px; text-decoration: underline; padding: 4px 0; }
 
 /* Play */
@@ -135,6 +138,8 @@ h1, h2, h3 { font-family: var(--f-display); font-weight: 400; letter-spacing: .0
 .fg { stroke: var(--mute); }
 .ah { fill: var(--line); } .ah.ok { fill: var(--good); } .ah.bad { fill: var(--bad); }
 
+.foot { margin-top: auto; text-align: center; font-size: 14px; color: var(--mute); padding-top: 12px; }
+.foot a { color: var(--mute); font-weight: 800; }
 .confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 20; }
 .confetti span { position: absolute; top: -40px; font-size: 26px; animation: fall 1.6s ease-in forwards; }
 @keyframes fall { to { transform: translateY(110vh) rotate(360deg); } }
@@ -163,6 +168,7 @@ h1, h2, h3 { font-family: var(--f-display); font-weight: 400; letter-spacing: .0
     <button class="iconbtn" id="soundBtn" aria-label="Ton an oder aus">🔊</button>
   </header>
   <main id="view"></main>
+  <footer class="foot"><a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a></footer>
 </div>
 <div class="confetti" id="confetti" aria-hidden="true"></div>
 
@@ -190,7 +196,7 @@ const ROUNDS = 6;
 
 // ---------------- Speicher ----------------
 const KEY = "parkplatz-quest-v1";
-let save = { name: "", xp: 0, stars: {}, open: false, sound: true };
+let save = { name: "", xp: 0, stars: {}, open: false, sound: true, detektiv: true };
 try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) save = Object.assign(save, s); } catch (e) {}
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} }
 
@@ -323,10 +329,12 @@ function mapScreen() {
         </button>`;
       }).join("")}
     </div>
+    <button class="teacher" id="detBtn">🕵️ Detektiv-Modus (erst Parkplätze zählen): ${save.detektiv ? "an" : "aus"}</button>
     <button class="teacher" id="teacher">${save.open ? "Lehrkraft: Level wieder sperren" : "Lehrkraft: alle Level öffnen"}</button>
   </section>`;
   view.querySelectorAll(".lvl").forEach(b => b.onclick = () => { SFX.tap(); play(+b.dataset.l); });
   document.getElementById("teacher").onclick = () => { save.open = !save.open; persist(); mapScreen(); };
+  document.getElementById("detBtn").onclick = () => { save.detektiv = !save.detektiv; persist(); mapScreen(); };
   document.getElementById("nameChange").onclick = () => startScreen();
 }
 
@@ -372,12 +380,16 @@ function round() {
       </div>
     </div>
     <div class="panel" style="display:flex;flex-direction:column;gap:12px">
-      <form class="typer" id="typer">
+      <div class="detect" id="detect" ${save.detektiv ? "" : "hidden"}>
+        <b>🕵️ Erst ermitteln: Wie viele Parkplätze zählst du?</b>
+        <div class="nums">${(() => { const n = letterTokens(spec).length, a = []; for (let i = Math.max(1, n - 3); i <= n + 3; i++) a.push(i); return a.map(i => `<button class="key" type="button" data-n="${i}">${i}</button>`).join(""); })()}</div>
+      </div>
+      <form class="typer" id="typer" ${save.detektiv ? "hidden" : ""}>
         <label for="inp" hidden>Wort eintippen</label>
         <input id="inp" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="${word.length}" placeholder="Wort eintippen …">
         <button class="big" type="submit" id="go">Prüfen</button>
       </form>
-      <div class="keys">
+      <div class="keys" id="keys" ${save.detektiv ? "hidden" : ""}>
         ${["ä","ö","ü","ß"].map(k => `<button class="key" type="button" data-k="${k}">${k}</button>`).join("")}
         <button class="key" type="button" data-k="back" aria-label="Löschen">⌫</button>
         <button class="key hint" type="button" id="hintBtn">💡 Tipp: Kronen und Könige</button>
@@ -392,7 +404,14 @@ function round() {
     document.getElementById("word").innerHTML = wordSVG(spec, shown, states || hs);
   };
   inp.oninput = () => { if (!G.done) redraw(); };
-  inp.focus();
+  const nP = letterTokens(spec).length;
+  const unlock = () => { document.getElementById("detect").hidden = true; document.getElementById("typer").hidden = false; document.getElementById("keys").hidden = false; inp.focus(); };
+  if (save.detektiv) {
+    view.querySelectorAll("#detect [data-n]").forEach(b => b.onclick = () => {
+      if (+b.dataset.n === nP) { G.gained += 3; save.xp += 3; persist(); hud(); SFX.tap(); msg("good", `Gut ermittelt: ${nP} Parkplätze! Jetzt darfst du schreiben. +3 XP`); unlock(); }
+      else { SFX.bad(); b.disabled = true; msg("bad", "Zähl nochmal: Tippe mit dem Finger auf jeden Parkplatz!"); }
+    });
+  } else inp.focus();
   document.getElementById("say").onclick = () => speak(word);
   setTimeout(() => speak(word), 250);
   document.getElementById("quit").onclick = mapScreen;
@@ -443,7 +462,7 @@ function check(word, spec, inp, redraw) {
     return;
   }
   const n = states.filter(s => s === "bad").length;
-  let tip = typed.length !== word.length ? `Zähl die Parkplätze nochmal: Das Wort hat ${word.length} Buchstaben.` : `${n} ${n === 1 ? "Parkplatz ist" : "Parkplätze sind"} noch falsch besetzt. Schau auf die roten Stellen!`;
+  let tip = typed.length < word.length ? "🚨 Knöllchen! Ein Parkplatz bleibt leer (Regel 3). Tippe und sprich das Wort nochmal ganz genau." : `🚨 Knöllchen! ${n} ${n === 1 ? "Auto steht" : "Autos stehen"} auf dem falschen Parkplatz. Schau auf die roten Stellen!`;
   if (G.L.id === 7 && /[dgb]$/.test(word) && typed.slice(-1) !== word.slice(-1)) tip = "Tipp: Verlängere das Wort! Was hörst du am Ende?";
   msg("bad", tip);
 }
